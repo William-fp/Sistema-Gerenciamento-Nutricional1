@@ -44,7 +44,7 @@ def atualizar_usuario(usuario_id: int, usuario_att: Usuario) -> Usuario:
   
 
 @app.delete("/usuarios/{usuario_id}")
-def remover_item(usuario_id: int):
+def remover_usuario(usuario_id: int):
     for usuario in usuarios:
         if usuario.id == usuario_id:
             usuarios.remove(usuario)
@@ -56,9 +56,11 @@ def remover_item(usuario_id: int):
 def criar_refeicao(usuario_id: int, refeicao: Refeicao):
   for usuario in usuarios:
     if usuario.id == usuario_id:
-      usuario.refeicoes.append(refeicao)
-      return refeicao
-    raise HTTPException(status_code="404", detail="Usuario não encontrado.")
+     if any(refeicao_atual.id == usuario.id for refeicao_atual in usuario.refeicoes):
+      raise HTTPException(status_code=400, detail="ID existente.")
+     usuario.refeicoes.append(refeicao)
+     return refeicao
+  raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Usuário não encontrado.")
 
 
 @app.get("/usuarios/{usuario_id}/refeicoes/")
@@ -75,7 +77,8 @@ def ler_refeicao(usuario_id: int, refeicao_id: int):
       for refeicao in usuario.refeicoes:
         if refeicao.id == refeicao_id:
           return refeicao
-  raise HTTPException(status_code=404, detail="Refeicao não encontrada.")    
+      raise HTTPException(status_code=404, detail="Refeicao não encontrada.")
+  raise HTTPException(status_code="404", detail="Usuario não encontrado.")   
 
 
 @app.put("/usuarios/{usuario_id}/refeicoes/{refeicao_id}")
@@ -89,5 +92,18 @@ def atualizar_refeicao(usuario_id: int, refeicao_id: int, refeicao_att: Refeicao
           usuario.refeicoes[i] = refeicao_att
           return refeicao_att
       raise HTTPException(status_code=404, detail="Refeicao não encontrada.")
+  raise HTTPException(status_code="404", detail="Usuario não encontrado.")
+
+
+@app.delete("/usuarios/{usuario_id}/refeicoes/{refeicao_id}")
+def excluir_refeicao(usuario_id: int, refeicao_id: int): 
+  for usuario in usuarios:
+    if usuario.id == usuario_id:
+      for i, refeicao in enumerate(usuario.refeicoes):
+        if refeicao.id == refeicao_id:
+          del usuario.refeicoes[i]
+          return {"msg": "Refeicao removida."}
+      raise HTTPException(status_code=404, detail="Refeicao não encontrada.")
+  raise HTTPException(status_code="404", detail="Usuario não encontrado.")
 
 
