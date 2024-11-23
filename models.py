@@ -9,7 +9,7 @@ class Alimento(BaseModel):
 class Refeicao(BaseModel):
   id: int
   tipo: str            #almoço,janta...
-  alimentos: list[Alimento]
+  alimentos: list[Alimento] = []
 
 
 class Usuario(BaseModel):
@@ -18,7 +18,7 @@ class Usuario(BaseModel):
   altura: float
   idade: int
   peso: float
-  refeicoes: list[Refeicao]
+  refeicoes: list[Refeicao] = []
 
 
 
