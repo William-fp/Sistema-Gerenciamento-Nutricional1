@@ -51,7 +51,7 @@ def atualizar_usuario(usuario_id: int, usuario_att: Usuario) -> Usuario:
 # DELETAR UM USUARIO
 
 @app.delete("/usuarios/{usuario_id}")
-def remover_item(usuario_id: int):
+def remover_usuario(usuario_id: int):
     for usuario in usuarios:
         if usuario.id == usuario_id:
             usuarios.remove(usuario)
@@ -65,9 +65,11 @@ def remover_item(usuario_id: int):
 def criar_refeicao(usuario_id: int, refeicao: Refeicao):
   for usuario in usuarios:
     if usuario.id == usuario_id:
+      if any(refeicao_atual.id == refeicao.id for refeicao_atual in usuario.refeicoes):
+        raise HTTPException(status_code=400, detail="ID existente.")
       usuario.refeicoes.append(refeicao)
       return refeicao
-    raise HTTPException(status_code="404", detail="Usuario não encontrado.")
+  raise HTTPException(status_code="404", detail="Usuario não encontrado.")
 
 # CRIAR UMA REFEICAO PARA UM USUARIO
 
@@ -76,6 +78,7 @@ def listar_refeicoes(usuario_id: int):
   for usuario in usuarios:
     if usuario.id == usuario_id:
       return usuario.refeicoes
+  raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Usuário não encontrado.")
 
 # LISTAR A REFEICAO DE UM USUARIO
 
@@ -86,7 +89,8 @@ def ler_refeicao(usuario_id: int, refeicao_id: int):
       for refeicao in usuario.refeicoes:
         if refeicao.id == refeicao_id:
           return refeicao
-  raise HTTPException(status_code=404, detail="Refeicao não encontrada.")    
+      raise HTTPException(status_code=404, detail="Refeicao não encontrada.")  
+  raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Usuário não encontrado.")  
 
 # ATUALIZAR A REFEICAO DE UM USUARIO
 
@@ -101,6 +105,7 @@ def atualizar_refeicao(usuario_id: int, refeicao_id: int, refeicao_att: Refeicao
           usuario.refeicoes[i] = refeicao_att
           return refeicao_att
       raise HTTPException(status_code=404, detail="Refeicao não encontrada.")
+  raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Usuário não encontrado.")
     
 # LISTAR TODOS OS ALIMENTOS
 

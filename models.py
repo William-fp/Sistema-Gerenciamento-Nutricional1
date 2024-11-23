@@ -19,8 +19,3 @@ class Usuario(BaseModel):
   idade: int
   peso: float
   refeicoes: list[Refeicao] = []
-
-
-
-
-
