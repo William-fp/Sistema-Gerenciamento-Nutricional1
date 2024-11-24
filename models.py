@@ -13,7 +13,6 @@ class Refeicao(BaseModel):
   tipo: str            #almoço,janta...
   alimentos: list[str]
 
-
 class Usuario(BaseModel):
   nome: str
   altura: float

@@ -233,31 +233,6 @@ async def carregar_csv(file: UploadFile = File(...)):
   else:
     return {"erro": "Apenas arquivos CSV são permitidos."}
   
-#endpoint to read csv file and return as JSON
-@app.get("/ler_csv/")
-async def ler_csv(file_name: str):
-  try:
-    with open(file_name, 'r') as f:
-      csv_reader = csv.DictReader(f)
-      json_data = [row for row in csv_reader]
-      return json_data
-  except FileNotFoundError:
-    return{"erro": "Arquivo não encontrado."}
-  
-#endpoint to write JSON data to CSV file
-@app.post("escrever-csv/")
-async def escrever_csv(data: CSV):
-  with open(data.file_name, 'a', newline='') as f:
-    fieldnames = ['nome', 'calorias', 'carboidratos', 'proteinas', 'acucar', 'sodio', 'gordura']
-    writer = csv.DictWriter(f, fieldnames=fieldnames)
-
-    if f.tell() == 0:
-      writer.writeheader()
-    for item in data.data:
-      writer.writerow(item.dict())
-  
-  return{"msg": "Json data append to CSV file "}
-
 # CONTAR ENTIDADES
 
 @app.get("/contar-entidades/{file_name}")
