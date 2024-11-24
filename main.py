@@ -1,4 +1,4 @@
-from starlette.responses import FileResponse
+from fastapi.responses import FileResponse
 import os
 import shutil
 from http import HTTPStatus
@@ -278,7 +278,7 @@ def compactar_csv(file_name: str):
     zip_file = file_name.replace('.csv', '.zip')
     with zipfile.ZipFile(zip_file, 'w') as zip_ref:
         zip_ref.write(file_name)
-    return {"zip_file": zip_file}
+    return FileResponse(zip_file, media_type='application/zip', filename=zip_file)
 
 # HASHEAR EM 256
 
