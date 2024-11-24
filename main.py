@@ -8,7 +8,6 @@ import pandas as pd
 import uuid
 import csv
 import os
-import io
 from pydantic import BaseModel
 import zipfile
 import hashlib
@@ -34,194 +33,186 @@ def padrao():
 
 @app.post("/usuarios/")
 def criar_usuario(usuario: Usuario) -> Usuario:
-  usuario_uuid = uuid.uuid4()
-  data = pd.DataFrame([usuario.dict()])
-  data.to_csv(f"./csv/usuario_{usuario_uuid}.csv", index=False)
-  os.makedirs(f'./csv/usuario_refeicao_{usuario_uuid}')
+  usuario_uuid = uuid.uuid4() 
+  usuario_data = usuario.dict()
+  usuario_data['usuario_id'] = usuario_uuid
+
+  if os.path.exists('./csv/usuarios.csv'):
+    usuarios_df = pd.read_csv('./csv/usuarios.csv')
+    new_user_df = pd.DataFrame([usuario_data])
+    usuarios_df = pd.concat([usuarios_df, new_user_df], ignore_index=True)
+    usuarios_df.to_csv('./csv/usuarios.csv', index=False)
+  else:
+    usuarios_df = pd.DataFrame([usuario_data])
+    usuarios_df.to_csv('./csv/usuarios.csv', index=False)
+
+  os.makedirs(f'./csv/usuario_refeicao_{usuario_uuid}', exist_ok=True)
+
   return usuario
 
 # LISTAR TODOS OS USUARIOS
 
 @app.get("/usuarios/")
-def listar_usuarios() -> list[dict]:
-  usuarios = []
-  for arquivo in os.listdir("./csv"):
-      print(f"Lendo arquivo {arquivo}")
-      if arquivo.startswith("usuario_") and arquivo.endswith(".csv"):
-          usuario_id = arquivo.replace("usuario_", "").replace(".csv", "")
-          df = pd.read_csv(os.path.join("./csv", arquivo))
-          for _, row in df.iterrows():
-              usuario = row.to_dict()
-              usuario['id'] = usuario_id
-              usuarios.append(usuario)
-  return usuarios
+def listar_usuarios():
+  if os.path.exists('./csv/usuarios.csv'):
+      usuarios_df = pd.read_csv('./csv/usuarios.csv')
+      usuarios_list = usuarios_df.to_dict(orient='records')
+      return {"usuarios": usuarios_list}
+  else:
+      raise HTTPException(status_code=404, detail="Nenhum usuário encontrado.")
 
 # LISTAR UM USUARIO ESPECIFICO
 
 @app.get("/usuarios/{usuario_id}")
-def ler_usuario(usuario_id) -> dict:
-  arquivo = f"usuario_{usuario_id}.csv"
-  if not os.path.exists(os.path.join("./csv", arquivo)):
-        return {"error": "Usuário não existe."}
-  else:
-      df = pd.read_csv(os.path.join("./csv", arquivo))
-      usuario = df.iloc[0].to_dict()
-      usuario['id'] = usuario_id
-      return usuario
+def listar_usuario(usuario_id: str):
+  if os.path.exists('./csv/usuarios.csv'):
+    usuarios_df = pd.read_csv('./csv/usuarios.csv')
+    usuario = usuarios_df[usuarios_df['usuario_id'] == usuario_id]
+    
+    if not usuario.empty:
+        return {"usuario": usuario.to_dict(orient='records')[0]}
+    else:
+        raise HTTPException(status_code=404, detail=f"Usuário com id {usuario_id} não encontrado.")
   
   
 # ATUALIZAR UM USUARIO
 
 @app.put("/usuarios/{usuario_id}")
-def atualizar_usuario(usuario_id: str, usuario: Usuario) -> Usuario:
-    diretorio = f"./csv/usuario_{usuario_id}.csv"
+def atualizar_usuario(usuario_id: str, usuario: Usuario):
+  if os.path.exists('./csv/usuarios.csv'):
+    usuarios_df = pd.read_csv('./csv/usuarios.csv')
     
-    if not os.path.exists(diretorio):
-      return {"error": "Usuário não existe."}    
-    df = pd.read_csv(diretorio)
+    usuario_idx = usuarios_df[usuarios_df['usuario_id'] == usuario_id].index
     
-    df.loc[0, 'nome'] = usuario.nome
-    df.loc[0, 'altura'] = usuario.altura
-    df.loc[0, 'idade'] = usuario.idade
-    df.loc[0, 'peso'] = usuario.peso
+    if usuario_idx.empty:
+        raise HTTPException(status_code=404, detail=f"usuario de  id {usuario_id} não existe.")
+    
+    usuarios_df.loc[usuario_idx, 'nome'] = usuario.nome
+    usuarios_df.loc[usuario_idx, 'altura'] = usuario.altura
+    usuarios_df.loc[usuario_idx, 'idade'] = usuario.idade
+    usuarios_df.loc[usuario_idx, 'peso'] = usuario.peso
 
-    df.to_csv(diretorio, index=False)
+    usuarios_df.to_csv('./csv/usuarios.csv', index=False)
     
-    return usuario
+    return {"msg": f"usuario de id {usuario_id} atualizado"}
+
   
 # DELETAR UM USUARIO
 
 @app.delete("/usuarios/{usuario_id}")
-def remover_usuario(usuario_id):
-  refeicoes_diretorio = f"usuario_refeicao_{usuario_id}"
-  arquivo = f"usuario_{usuario_id}.csv"
-  if not os.path.exists(os.path.join("./csv", arquivo)):
-        return {"error": "Usuário não existe."}
+def deletar_usuario(usuario_id: str):
+  if os.path.exists('./csv/usuarios.csv'):
+      usuarios_df = pd.read_csv('./csv/usuarios.csv')
+      
+      usuario = usuarios_df[usuarios_df['usuario_id'] == usuario_id]
+      
+      if not usuario.empty:
+          usuarios_df = usuarios_df[usuarios_df['usuario_id'] != usuario_id]
+          
+          usuarios_df.to_csv('./csv/usuarios.csv', index=False)
+
+          return {"msg": f"Usuário com id {usuario_id} removido com sucesso."}
+      else:
+          raise HTTPException(status_code=404, detail=f"Usuário com id {usuario_id} não encontrado.")
   else:
-      os.remove(os.path.join("./csv", arquivo))
-      shutil.rmtree(os.path.join("./csv/", refeicoes_diretorio))
-      return {"message": f"Usuário {usuario_id} deletado com sucesso!"}  
+      raise HTTPException(status_code=404, detail="Arquivo de usuários não encontrado.")
 
 # CRIAR UMA REFEICAO PARA UM USUARIO
 
 @app.post("/refeicoes/")
-def criar_refeicao(dados: dict[str, object]) -> Refeicao:
-  refeicao_id = uuid.uuid4()
-  usuario_id = dados.get("usuario_id")
-  refeicao = dados.get("refeicao")
-  data = pd.DataFrame([refeicao])
-  data.to_csv(f"./csv/usuario_refeicao_{usuario_id}/{refeicao_id}.csv", index=False)
-  return refeicao
+def criar_refeicao(dados: dict[str, object]):
+    usuario_id = dados.get("usuario_id")
+    refeicao = dados.get("refeicao")
+    refeicao_id = uuid.uuid4()
+    refeicao['refeicao_id'] = str(refeicao_id)
+    refeicao['usuario_id'] = usuario_id
+    
+    if not usuario_id or not refeicao:
+        raise HTTPException(status_code=400, detail="usuario_id e refeicao são obrigatórios")
+    
+    df = pd.DataFrame([refeicao])
+    arquivo_csv = f'./csv/refeicoes_usuario_{usuario_id}.csv'
+    if os.path.exists(arquivo_csv):
+        df.to_csv(arquivo_csv, mode='a', header=False, index=False)
+    else:
+        df.to_csv(arquivo_csv, mode='w', header=True, index=False)
+    
+    return {"msg": f"refeição adicionada ao usuario {usuario_id}", "refeicao_id": str(refeicao_id)}
 
 # LISTAR AS REFEICOES DE UM USUARIO
 
 @app.get("/refeicoes/{usuario_id}")
 def listar_refeicoes(usuario_id: str):
-    caminho_pasta = f"./csv/usuario_refeicao_{usuario_id}"
-
-    if os.path.isdir(caminho_pasta):
-        arquivos = os.listdir(caminho_pasta)
-
-        if arquivos: 
-            refeicoes = [] 
-
-            for arquivo in arquivos:
-                caminho_arquivo = os.path.join(caminho_pasta, arquivo)
-                try:
-                    refeicao = pd.read_csv(caminho_arquivo).to_dict(orient="records")
-                except Exception as e:
-                    with open(caminho_arquivo, "r") as f:
-                        refeicao = f.read()
-                id_refeicao = arquivo.replace(".csv", "")
-                refeicoes.append({
-                    "id": id_refeicao,
-                    "refeicao": refeicao
-                })
-
-            return {"refeicoes": refeicoes}
-        else:
-            return {"msg": "Nenhuma refeição encontrada."}
-    else:
-        return {"error": f"Erro ao acessar diretório do usuario de id {usuario_id}"}
+    arquivo_csv = f'./csv/refeicoes_usuario_{usuario_id}.csv'
+    
+    if not os.path.exists(arquivo_csv):
+        raise HTTPException(status_code=404, detail="Usuário não encontrado ou ainda não tem refeições registradas.")
+    
+    df = pd.read_csv(arquivo_csv)
+    if df.empty:
+        raise HTTPException(status_code=404, detail="Nenhuma refeição encontrada para o usuário.")
+    
+    refeicoes = df.to_dict(orient="records")
+    return {"usuario_id": usuario_id, "refeicoes": refeicoes}
 
 # ATUALIZAR A REFEICAO DE UM USUARIO
 
 @app.put("/refeicoes/{usuario_id}/{refeicao_id}")
-def atualizar_refeicao(usuario_id: str, refeicao_id : str, refeicao : Refeicao):
-
-    diretorio = f"./csv/usuario_refeicao_{usuario_id}/{refeicao_id}.csv"
+def atualizar_refeicao(usuario_id: str, refeicao_id: str, dados: dict):
+    # Caminho do arquivo CSV do usuário
+    arquivo_csv = f'./csv/refeicoes_usuario_{usuario_id}.csv'
     
-    if not os.path.exists(diretorio):
-      return {"error": "Refeição não existe."}   
-     
-    df = pd.read_csv(diretorio)
+    # Verificar se o arquivo existe
+    if not os.path.exists(arquivo_csv):
+        raise HTTPException(status_code=404, detail="Usuário não encontrado ou ainda não tem refeições registradas.")
     
-    df.loc[0, 'tipo'] = refeicao.tipo
-    df.loc[0, 'alimentos'] = refeicao.alimentos
-
-    df.to_csv(diretorio, index=False)
-
-    return {"msg": f"Refeição {refeicao_id} do usuário {usuario_id} atualizada com sucesso!", "nova_refeicao": refeicao}
-
-@app.put("/refeicoes/{usuario_id}")
-def atualizar_usuario(usuario_id: str, usuario: Usuario) -> Usuario:
-    diretorio = f"./csv/usuario_{usuario_id}.csv"
+    df = pd.read_csv(arquivo_csv)
     
-    if not os.path.exists(diretorio):
-      return {"error": "Usuário não existe."}    
-    df = pd.read_csv(diretorio)
+    if df.empty:
+        raise HTTPException(status_code=404, detail="Nenhuma refeição encontrada para o usuário.")
     
-    df.loc[0, 'nome'] = usuario.nome
-    df.loc[0, 'altura'] = usuario.altura
-    df.loc[0, 'idade'] = usuario.idade
-    df.loc[0, 'peso'] = usuario.peso
-
-    df.to_csv(diretorio, index=False)
+    refeicao_index = df[df['refeicao_id'] == refeicao_id].index
     
-    return usuario
-
+    if len(refeicao_index) == 0:
+        raise HTTPException(status_code=404, detail="Refeição não encontrada.")
+    
+    for key, value in dados.items():
+        if key in df.columns:
+            df.at[refeicao_index[0], key] = value
+    
+    df.to_csv(arquivo_csv, index=False)
+    
+    return {"msg": "Refeição atualizada com sucesso."}
 
 # REMOVER REFEICAO
 
-@app.delete("/refeicoes/")
-def remover_refeicao(dados: dict[str, str]):
-  usuario_id = dados.get("usuario_id")
-  refeicao_id = dados.get("refeicao_id")
-  if os.path.exists(f'./csv/usuario_refeicao_{usuario_id}'):
-    os.remove(os.path.join(f"./csv/usuario_refeicao_{usuario_id}/", refeicao_id))
-    return {"msg": "Refeição removida."}
-  else:
-    return {"error": "Usuário não existe."}
+@app.delete("/refeicoes/{usuario_id}/{refeicao_id}")
+def remover_refeicao(usuario_id: str, refeicao_id: str):
+    arquivo_csv = f'./csv/refeicoes_usuario_{usuario_id}.csv'
+    if not os.path.exists(arquivo_csv):
+        raise HTTPException(status_code=404, detail="Usuário não encontrado ou ainda não tem refeições registradas.")
+    
+    df = pd.read_csv(arquivo_csv)
+    if df.empty:
+        raise HTTPException(status_code=404, detail="Nenhuma refeição encontrada para o usuário.")
+    refeicao_index = df[df['refeicao_id'] == refeicao_id].index
+    if len(refeicao_index) == 0:
+        raise HTTPException(status_code=404, detail="Refeição não encontrada.")
+    
+    df = df.drop(refeicao_index)
+    df.to_csv(arquivo_csv, index=False)
+    
+    return {"msg": "Refeição removida com sucesso."}
 
 # LISTAR TODOS OS ALIMENTOS
 
 @app.get("/alimentos/")
-def listar_alimentos() -> list[dict]:
-    alimentos = []
-    for arquivo in os.listdir("./csv"):
-        if arquivo.startswith("alimento_") and arquivo.endswith(".csv"):
-
-            alimento_id = arquivo.replace("alimento_", "").replace(".csv", "")
-
-            df = pd.read_csv(os.path.join("./csv", arquivo))
-            for _, row in df.iterrows():
-                alimento = row.to_dict()
-                alimento['id'] = alimento_id
-                alimentos.append(alimento)
-
-    return alimentos
-
-# CRIAR UM ALIMENTO
-
-@app.post("/alimentos/")
-def criar_alimento(alimento: Alimento) -> Alimento:
-  data = pd.DataFrame([alimento.dict()])
-  alimento_uuid = uuid.uuid4()
-  data.to_csv(f"./csv/alimento_{alimento_uuid}.csv", index=False)
-  return alimento
+def listar_alimentos():
+    df = pd.read_csv('./csv/alimentos.csv')
+    alimentos = df.to_dict(orient="records")
+    return {"alimentos": alimentos}
   
-
-#endpoint to upload CSV file
+# FAZER UPLOAD DE CSV
 @app.post("/carregar_csv/")
 async def carregar_csv(file: UploadFile = File(...)):
   if file.filename.endswith(".csv"):
@@ -248,14 +239,15 @@ def contar_entidades(file_name: str):
 
 # COMPACTAR CSV
 
-@app.get("/compactar-csv/")
+@app.get("/compactar-csv/{file_name}")
 def compactar_csv(file_name: str):
+    file_name = os.path.join("./csv", file_name)
     zip_file = file_name.replace('.csv', '.zip')
     with zipfile.ZipFile(zip_file, 'w') as zip_ref:
         zip_ref.write(file_name)
     return FileResponse(zip_file, media_type='application/zip', filename=zip_file)
 
-# HASHEAR EM 256
+# HASHEAR EM SHA256
 
 @app.get("/hash-sha256/{file_name}")
 def hash_sha256(file_name: str):
@@ -264,4 +256,3 @@ def hash_sha256(file_name: str):
     sha256.update(f.read())
     hash = sha256.hexdigest()
     return{"sha256": hash}
-
