@@ -2,8 +2,12 @@ from pydantic import BaseModel
 
 class Alimento(BaseModel):
   nome: str
-  quantidade: float
-  unidade: str          #grama, kilo
+  calorias: float
+  carboidratos: float 
+  proteinas: float 
+  acucar: float 
+  sodio: float 
+  gordura: float 
 
 
 class Refeicao(BaseModel):
