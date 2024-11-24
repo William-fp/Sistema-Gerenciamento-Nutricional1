@@ -1,3 +1,4 @@
+from starlette.responses import FileResponse
 import os
 import shutil
 from http import HTTPStatus
@@ -257,12 +258,12 @@ async def escrever_csv(data: CSV):
   
   return{"msg": "Json data append to CSV file "}
 
+# CONTAR ENTIDADES
 
-#f4
-@app.get("/contar-entidades/")
+@app.get("/contar-entidades/{file_name}")
 def contar_entidades(file_name: str):
   try:
-    with open(file_name, 'r', newline='') as f:
+    with open(os.path.join("./csv/", file_name), 'r', newline='') as f:
       reader = csv.reader(f)
       next(reader)
       row_count = sum(1 for row in reader)
@@ -270,7 +271,8 @@ def contar_entidades(file_name: str):
   except FileNotFoundError:
     return {"erro": "Arquivo não encontrado."}
 
-#f5
+# COMPACTAR CSV
+
 @app.get("/compactar-csv/")
 def compactar_csv(file_name: str):
     zip_file = file_name.replace('.csv', '.zip')
@@ -278,11 +280,12 @@ def compactar_csv(file_name: str):
         zip_ref.write(file_name)
     return {"zip_file": zip_file}
 
-#f6
-@app.get("/hash-sha256/")
+# HASHEAR EM 256
+
+@app.get("/hash-sha256/{file_name}")
 def hash_sha256(file_name: str):
   sha256 = hashlib.sha256()
-  with open(file_name, 'rb') as f:
+  with open(os.path.join("./csv/", file_name) , 'rb') as f:
     sha256.update(f.read())
     hash = sha256.hexdigest()
     return{"sha256": hash}
