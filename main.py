@@ -212,18 +212,6 @@ def listar_alimentos():
     alimentos = df.to_dict(orient="records")
     return {"alimentos": alimentos}
   
-# FAZER UPLOAD DE CSV
-@app.post("/carregar_csv/")
-async def carregar_csv(file: UploadFile = File(...)):
-  if file.filename.endswith(".csv"):
-    contents = await file.read()
-
-    with open(file.filename, 'wb') as f:
-      f.write(contents)
-    return {"msg": "Arquivo CSV carregado com sucesso."}
-  else:
-    return {"erro": "Apenas arquivos CSV são permitidos."}
-  
 # CONTAR ENTIDADES
 
 @app.get("/contar-entidades/{file_name}")
