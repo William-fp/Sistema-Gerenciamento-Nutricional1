@@ -1,0 +1,10 @@
+[Dolphin]
+SortHiddenLast=true
+SortRole=creationtime
+Timestamp=2024,11,23,23,48,41.912
+Version=4
+ViewMode=1
+VisibleRoles=Details_text,Details_creationtime,CustomizedDetails
+
+[Settings]
+HiddenFilesShown=true

@@ -2,20 +2,20 @@ from pydantic import BaseModel
 
 class Alimento(BaseModel):
   nome: str
-  quantidade: float
-  unidade: str          #grama, kilo
-
+  calorias: float = 0
+  carboidratos: float = 0
+  proteinas: float = 0
+  acucar: float = 0
+  sodio: float = 0
+  gordura: float = 0
 
 class Refeicao(BaseModel):
-  id: int
   tipo: str            #almoço,janta...
-  alimentos: list[Alimento] = []
+  alimentos: list[str]
 
 
 class Usuario(BaseModel):
-  id: int
   nome: str
   altura: float
   idade: int
   peso: float
-  refeicoes: list[Refeicao] = []
