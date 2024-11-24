@@ -1,10 +1,16 @@
 import os
 import shutil
 from http import HTTPStatus
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from models import Usuario, Refeicao, Alimento
 import pandas as pd
 import uuid
+import csv
+import os
+import io
+from pydantic import BaseModel
+import zipfile
+import hashlib
 
 app = FastAPI()
 
@@ -13,6 +19,10 @@ alimentos: list[Alimento] = []
 
 if not os.path.exists('./csv'):
   os.makedirs('csv')
+
+class CSV(BaseModel):
+  data: list[Alimento]
+  file_name: str
 
 
 @app.get("/")
@@ -209,3 +219,71 @@ def criar_alimento(alimento: Alimento) -> Alimento:
   data.to_csv(f"./csv/alimento_{alimento_uuid}.csv", index=False)
   return alimento
   
+
+#endpoint to upload CSV file
+@app.post("/carregar_csv/")
+async def carregar_csv(file: UploadFile = File(...)):
+  if file.filename.endswith(".csv"):
+    contents = await file.read()
+
+    with open(file.filename, 'wb') as f:
+      f.write(contents)
+    return {"msg": "Arquivo CSV carregado com sucesso."}
+  else:
+    return {"erro": "Apenas arquivos CSV são permitidos."}
+  
+#endpoint to read csv file and return as JSON
+@app.get("/ler_csv/")
+async def ler_csv(file_name: str):
+  try:
+    with open(file_name, 'r') as f:
+      csv_reader = csv.DictReader(f)
+      json_data = [row for row in csv_reader]
+      return json_data
+  except FileNotFoundError:
+    return{"erro": "Arquivo não encontrado."}
+  
+#endpoint to write JSON data to CSV file
+@app.post("escrever-csv/")
+async def escrever_csv(data: CSV):
+  with open(data.file_name, 'a', newline='') as f:
+    fieldnames = ['nome', 'calorias', 'carboidratos', 'proteinas', 'acucar', 'sodio', 'gordura']
+    writer = csv.DictWriter(f, fieldnames=fieldnames)
+
+    if f.tell() == 0:
+      writer.writeheader()
+    for item in data.data:
+      writer.writerow(item.dict())
+  
+  return{"msg": "Json data append to CSV file "}
+
+
+#f4
+@app.get("/contar-entidades/")
+def contar_entidades(file_name: str):
+  try:
+    with open(file_name, 'r', newline='') as f:
+      reader = csv.reader(f)
+      next(reader)
+      row_count = sum(1 for row in reader)
+    return{"contagem": row_count}
+  except FileNotFoundError:
+    return {"erro": "Arquivo não encontrado."}
+
+#f5
+@app.get("/compactar-csv/")
+def compactar_csv(file_name: str):
+    zip_file = file_name.replace('.csv', '.zip')
+    with zipfile.ZipFile(zip_file, 'w') as zip_ref:
+        zip_ref.write(file_name)
+    return {"zip_file": zip_file}
+
+#f6
+@app.get("/hash-sha256/")
+def hash_sha256(file_name: str):
+  sha256 = hashlib.sha256()
+  with open(file_name, 'rb') as f:
+    sha256.update(f.read())
+    hash = sha256.hexdigest()
+    return{"sha256": hash}
+
