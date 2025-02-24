@@ -4,3 +4,4 @@ git clone https://github.com/LeviLeal/SistemaInformacaoNutricional_Persistencia.
 cd SistemaInformacaoNutricional_Persistencia
 uv run fastapi dev
 ```
+Trabalho feito em conjunto LeviLeal
